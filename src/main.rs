@@ -83,6 +83,7 @@ impl Chord {
 }
 
 type Tuning = [Note; 6];
+const DEFAULT_TUNING: Tuning = [Note::E, Note::A, Note::D, Note::G, Note::B, Note::E];
 
 #[derive(Copy, Clone, Debug)]
 struct Finger(Option<u8>);
@@ -231,14 +232,12 @@ fn is_contiguous(fingering: &Fingering) -> bool {
 }
 
 fn main() {
-    let t: Tuning = [Note::E, Note::A, Note::D, Note::G, Note::B, Note::E];
-
     let mut m: HashMap<Note, HashMap<Chord, Vec<Fingering>>> = HashMap::new();
 
     for root in Note::iter() {
         m.insert(root, HashMap::new());
         for chord in Chord::iter() {
-            let inversions: Vec<Fingering> = gen_inversions(root, chord, t)
+            let inversions: Vec<Fingering> = gen_inversions(root, chord, DEFAULT_TUNING)
                 .into_iter()
                 .filter(is_compact) // only compact
                 .filter(is_contiguous) // only contiguous
