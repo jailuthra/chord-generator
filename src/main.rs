@@ -1,11 +1,16 @@
+use itertools::Itertools;
 use num_derive::{FromPrimitive, ToPrimitive};
 use num_traits::{FromPrimitive, ToPrimitive};
 use serde::Serialize;
 use std::{collections::HashMap, ops::Add};
+use strum::IntoEnumIterator;
+use strum_macros::EnumIter;
 
 const MAX_FRETS: u8 = 9;
 
-#[derive(Debug, Copy, Clone, FromPrimitive, ToPrimitive, PartialEq, Eq, Hash, Serialize)]
+#[derive(
+    Debug, Copy, Clone, FromPrimitive, ToPrimitive, PartialEq, Eq, Hash, Serialize, EnumIter,
+)]
 enum Note {
     C = 0,
     CSharp,
@@ -40,10 +45,21 @@ impl Add<Finger> for Note {
     }
 }
 
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, EnumIter)]
 enum Chord {
     Major,
     Minor,
+    Augmented,
+    Diminished,
+    Seventh,
+    MajorSeventh,
+    MinorSeventh,
+    Sus2,
+    Sus4,
+    MinorMajorSeventh,
+    DiminishedSeventh,
+    MajorNinth,
+    MinorNinth,
 }
 
 impl Chord {
@@ -51,6 +67,17 @@ impl Chord {
         match self {
             Chord::Major => vec![root, root + 4, root + 7],
             Chord::Minor => vec![root, root + 3, root + 7],
+            Chord::Sus2 => vec![root, root + 2, root + 7],
+            Chord::Sus4 => vec![root, root + 5, root + 7],
+            Chord::Augmented => vec![root, root + 4, root + 8],
+            Chord::Diminished => vec![root, root + 3, root + 6],
+            Chord::Seventh => vec![root, root + 4, root + 7, root + 10],
+            Chord::MajorSeventh => vec![root, root + 4, root + 7, root + 11],
+            Chord::MinorSeventh => vec![root, root + 3, root + 7, root + 10],
+            Chord::MinorMajorSeventh => vec![root, root + 3, root + 7, root + 11],
+            Chord::DiminishedSeventh => vec![root, root + 3, root + 6, root + 9],
+            Chord::MajorNinth => vec![root, root + 4, root + 7, root + 11, root + 14],
+            Chord::MinorNinth => vec![root, root + 3, root + 7, root + 10, root + 14],
         }
     }
 }
@@ -110,7 +137,7 @@ fn next_fingering(fingering: &mut Fingering) -> bool {
     false
 }
 
-fn get_held_notes(t: Tuning, fingering: Fingering) -> [Option<Note>; 6] {
+fn get_played_notes(t: Tuning, fingering: Fingering) -> [Option<Note>; 6] {
     let mut notes = [None; 6];
     for (i, f) in fingering.into_iter().enumerate() {
         notes[i] = t[i] + f;
@@ -123,16 +150,16 @@ fn gen_inversions(root: Note, chord: Chord, t: Tuning) -> Vec<Fingering> {
     let mut fingering: Fingering = [Finger(None); 6];
 
     loop {
-        let held_notes = get_held_notes(t, fingering);
+        let played_notes = get_played_notes(t, fingering);
 
         // Check if all notes in this particular fingering are part of chord triad
-        let mut all_held_notes_valid = true;
-        for n in held_notes {
+        let mut all_played_notes_valid = true;
+        for n in played_notes {
             match n {
                 None => continue,
                 Some(note) => {
                     if chord.notes(root).into_iter().find(|&x| x == note).is_none() {
-                        all_held_notes_valid = false;
+                        all_played_notes_valid = false;
                         break;
                     }
                 }
@@ -142,7 +169,7 @@ fn gen_inversions(root: Note, chord: Chord, t: Tuning) -> Vec<Fingering> {
         // Check if all notes of the chord are being held
         let mut all_chord_notes_are_held = true;
         for note in chord.notes(root) {
-            if held_notes
+            if played_notes
                 .into_iter()
                 .find(|&held| held == Some(note))
                 .is_none()
@@ -151,7 +178,7 @@ fn gen_inversions(root: Note, chord: Chord, t: Tuning) -> Vec<Fingering> {
             }
         }
 
-        if all_held_notes_valid && all_chord_notes_are_held {
+        if all_played_notes_valid && all_chord_notes_are_held {
             inversions.push(fingering);
         }
 
@@ -162,15 +189,76 @@ fn gen_inversions(root: Note, chord: Chord, t: Tuning) -> Vec<Fingering> {
     inversions
 }
 
+// Is the fingering compact (true) or spread out across > 4 frets (false)
+fn is_compact(fingering: &Fingering) -> bool {
+    let played: Vec<i8> = fingering
+        .into_iter()
+        .filter_map(|&f| {
+            let x: i8 = f.into();
+            if x > 0 {
+                Some(x)
+            } else {
+                None
+            }
+        })
+        .collect();
+    if played.len() == 0 {
+        return false;
+    }
+    played.iter().max().unwrap() - played.iter().min().unwrap() <= 4
+}
+
+// Are the played strings contiguious (true) or have random unplayed strings in between (false)
+fn is_contiguous(fingering: &Fingering) -> bool {
+    let mut zone = 0;
+    // xx12xx is valid, where first xx are zone0, 12 are zone1, and last xx are zone3
+    for f in fingering {
+        if zone == 0 {
+            if f.0 != None {
+                zone = 1;
+            }
+            continue;
+        }
+        if zone == 1 {
+            if f.0 == None {
+                zone = 2;
+            }
+            continue;
+        }
+        return false;
+    }
+    true
+}
+
 fn main() {
     let t: Tuning = [Note::E, Note::A, Note::D, Note::G, Note::B, Note::E];
+
     let mut m: HashMap<Note, HashMap<Chord, Vec<Fingering>>> = HashMap::new();
-    for root in [Note::D, Note::C] {
+
+    for root in Note::iter() {
         m.insert(root, HashMap::new());
-        for chord in [Chord::Major, Chord::Minor] {
-            let inversions = gen_inversions(root, chord, t);
+        for chord in Chord::iter() {
+            let inversions: Vec<Fingering> = gen_inversions(root, chord, t)
+                .into_iter()
+                .filter(is_compact) // only compact
+                .filter(is_contiguous) // only contiguous
+                .sorted_by(|a, b| {
+                    // sort the fingerings to move down the neck
+                    i8::cmp(
+                        &a.into_iter()
+                            .map(|&x| <Finger as Into<i8>>::into(x))
+                            .filter(|&x| x != -1)
+                            .sum(),
+                        &b.into_iter()
+                            .map(|&x| <Finger as Into<i8>>::into(x))
+                            .filter(|&x| x != -1)
+                            .sum(),
+                    )
+                })
+                .collect();
+            // insert list of inversions for this particular chord
             m.get_mut(&root).unwrap().insert(chord, inversions.clone());
         }
     }
-    println!("{}", serde_json::to_string(&m).unwrap());
+    println!("{}", serde_json::to_string_pretty(&m).unwrap());
 }
