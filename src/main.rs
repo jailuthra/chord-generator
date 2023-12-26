@@ -214,7 +214,7 @@ fn is_compact(fingering: &Fingering) -> bool {
     if played.len() == 0 {
         return false;
     }
-    played.iter().max().unwrap() - played.iter().min().unwrap() <= 4
+    played.iter().max().unwrap() - played.iter().min().unwrap() < 4
 }
 
 // Are the played strings contiguious (true) or have random unplayed strings in between (false)
