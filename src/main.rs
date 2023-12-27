@@ -64,6 +64,7 @@ enum Chord {
     AddEleventh,
     MinorSixth,
     MajorSixth,
+    AddSixthAddNinth,
 }
 
 impl Chord {
@@ -86,6 +87,7 @@ impl Chord {
             Chord::MinorNinth => vec![root, root + 3, root + 7, root + 10, root + 14],
             Chord::AddNinth => vec![root, root + 4, root + 7, root + 14],
             Chord::AddEleventh => vec![root, root + 4, root + 7, root + 17],
+            Chord::AddSixthAddNinth => vec![root, root + 4, root + 7, root + 9, root + 14],
         }
     }
 }
