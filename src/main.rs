@@ -2,14 +2,25 @@ use itertools::Itertools;
 use num_derive::{FromPrimitive, ToPrimitive};
 use num_traits::{FromPrimitive, ToPrimitive};
 use serde::Serialize;
-use std::{collections::HashMap, ops::Add};
+use std::{collections::BTreeMap, ops::Add};
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
 const MAX_FRETS: u8 = 9;
 
 #[derive(
-    Debug, Copy, Clone, FromPrimitive, ToPrimitive, PartialEq, Eq, Hash, Serialize, EnumIter,
+    Debug,
+    Copy,
+    Clone,
+    FromPrimitive,
+    ToPrimitive,
+    PartialEq,
+    Eq,
+    Hash,
+    Serialize,
+    EnumIter,
+    PartialOrd,
+    Ord,
 )]
 enum Note {
     C = 0,
@@ -45,7 +56,7 @@ impl Add<Finger> for Note {
     }
 }
 
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, EnumIter)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, EnumIter, PartialOrd, Ord)]
 enum Chord {
     Major,
     Minor,
@@ -242,10 +253,10 @@ fn is_contiguous(fingering: &Fingering) -> bool {
 }
 
 fn main() {
-    let mut m: HashMap<Note, HashMap<Chord, Vec<Fingering>>> = HashMap::new();
+    let mut m: BTreeMap<Note, BTreeMap<Chord, Vec<Fingering>>> = BTreeMap::new();
 
     for root in Note::iter() {
-        m.insert(root, HashMap::new());
+        m.insert(root, BTreeMap::new());
         for chord in Chord::iter() {
             let inversions: Vec<Fingering> = gen_inversions(root, chord, DEFAULT_TUNING)
                 .into_iter()
