@@ -252,6 +252,11 @@ fn is_contiguous(fingering: &Fingering) -> bool {
     true
 }
 
+// Make sure at least four strings are being played, three note chords sound too empty
+fn at_least_four_strings(fingering: &Fingering) -> bool {
+    fingering.into_iter().filter(|f| f.0.is_some()).count() >= 4
+}
+
 fn main() {
     let mut m: BTreeMap<Note, BTreeMap<Chord, Vec<Fingering>>> = BTreeMap::new();
 
@@ -262,6 +267,7 @@ fn main() {
                 .into_iter()
                 .filter(is_compact) // only compact
                 .filter(is_contiguous) // only contiguous
+                .filter(at_least_four_strings) // at least four played strings
                 .sorted_by(|a, b| {
                     // sort the fingerings to move down the neck
                     i8::cmp(
