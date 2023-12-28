@@ -159,6 +159,23 @@ fn next_fingering(fingering: &mut Fingering) -> bool {
     false
 }
 
+// TODO: This is temporary, we need to instead assign actual fingers and have a cost function for
+// distance, cramping, crossing etc
+fn fingering_score(fingering: &Fingering) -> u32 {
+    let mut sum: u32 = 0;
+    for finger in fingering {
+        match finger.0 {
+            // Open strings are best, give em max points :)
+            Some(0) => sum += 15,
+            // Closed strings are okay but better to have them at the start of the neck
+            Some(x) => sum += (10 - x) as u32,
+            // Muting is better than playing
+            None => sum += 10,
+        }
+    }
+    sum
+}
+
 fn get_played_notes(t: Tuning, fingering: Fingering) -> [Option<Note>; 6] {
     let mut notes = [None; 6];
     for (i, f) in fingering.into_iter().enumerate() {
@@ -269,17 +286,8 @@ fn main() {
                 .filter(is_contiguous) // only contiguous
                 .filter(at_least_four_strings) // at least four played strings
                 .sorted_by(|a, b| {
-                    // sort the fingerings to move down the neck
-                    i8::cmp(
-                        &a.into_iter()
-                            .map(|&x| <Finger as Into<i8>>::into(x))
-                            .filter(|&x| x != -1)
-                            .sum(),
-                        &b.into_iter()
-                            .map(|&x| <Finger as Into<i8>>::into(x))
-                            .filter(|&x| x != -1)
-                            .sum(),
-                    )
+                    // sort the fingerings by descending score
+                    u32::cmp(&fingering_score(b), &fingering_score(a))
                 })
                 .collect();
             // insert list of inversions for this particular chord
