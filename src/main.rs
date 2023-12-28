@@ -280,6 +280,29 @@ fn at_least_four_strings(fingering: &Fingering) -> bool {
     fingering.into_iter().filter(|f| f.0.is_some()).count() >= 4
 }
 
+/*
+Chords that can be played with 4 fingers easily with first finger optionally barring over a fret
+xx4532 is good
+224432 is good (barre with first finger)
+654776 is not good
+*/
+fn is_four_fingered(fingering: &Fingering) -> bool {
+    // find min finger that's not open/muted string
+    let played: Vec<i8> = fingering
+        .into_iter()
+        .filter_map(|&f| {
+            let x: i8 = f.into();
+            if x > 0 {
+                Some(x)
+            } else {
+                None
+            }
+        })
+        .collect();
+    let min = played.iter().min().unwrap();
+    // count played notes that are not the min (smallest fret - barred)
+    played.iter().filter(|&x| x != min).count() < 4
+}
 fn main() {
     let mut m: BTreeMap<Note, BTreeMap<Chord, Vec<Fingering>>> = BTreeMap::new();
 
@@ -291,6 +314,7 @@ fn main() {
                 .filter(is_compact) // only compact
                 .filter(is_contiguous) // only contiguous
                 .filter(at_least_four_strings) // at least four played strings
+                .filter(is_four_fingered) // only what can be held easily with four fingers
                 .sorted_by(|a, b| {
                     // sort the fingerings by descending score
                     u32::cmp(&fingering_score(b), &fingering_score(a))
