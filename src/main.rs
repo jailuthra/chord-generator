@@ -159,10 +159,30 @@ fn next_fingering(fingering: &mut Fingering) -> bool {
     false
 }
 
+fn compactness(fingering: &Fingering) -> i8 {
+    let played: Vec<i8> = fingering
+        .into_iter()
+        .filter_map(|&f| {
+            let x: i8 = f.into();
+            if x > 0 {
+                Some(x)
+            } else {
+                None
+            }
+        })
+        .collect();
+    if played.len() == 0 {
+        return std::i8::MAX;
+    }
+    played.iter().max().unwrap() - played.iter().min().unwrap()
+}
+
 // TODO: This is temporary, we need to instead assign actual fingers and have a cost function for
 // distance, cramping, crossing etc
 fn fingering_score(fingering: &Fingering) -> u32 {
     let mut sum: u32 = 0;
+    // prefer compact chords
+    sum += (5 - compactness(fingering)) as u32;
     for finger in fingering {
         match finger.0 {
             // Open strings are best, give em max points :)
@@ -230,21 +250,7 @@ fn gen_inversions(root: Note, chord: Chord, t: Tuning) -> Vec<Fingering> {
 
 // Is the fingering compact (true) or spread out across > 4 frets (false)
 fn is_compact(fingering: &Fingering) -> bool {
-    let played: Vec<i8> = fingering
-        .into_iter()
-        .filter_map(|&f| {
-            let x: i8 = f.into();
-            if x > 0 {
-                Some(x)
-            } else {
-                None
-            }
-        })
-        .collect();
-    if played.len() == 0 {
-        return false;
-    }
-    played.iter().max().unwrap() - played.iter().min().unwrap() < 4
+    compactness(fingering) < 4
 }
 
 // Are the played strings contiguious (true) or have random unplayed strings in between (false)
